@@ -1,9 +1,6 @@
 name: Release SDK Library as GitHub release (Ivy, nightly)
 
 on:
-  schedule:
-  # Nightly pre-release on Monday and Thursday only, built from the rust sdk `main` branch.
-    - cron: '0 2 * * 1,4'
   workflow_dispatch:
     inputs:
       rust-checkout-ref:
@@ -296,62 +293,10 @@ jobs:
           gh release create "sdk-${GITHUB_EVENT_INPUTS_SDK_VERSION}" build/release-assets/* \
             --title "sdk-${GITHUB_EVENT_INPUTS_SDK_VERSION}" \
             ${PRERELEASE_ARG} \
-            --notes "https://github.com/matrix-org/matrix-rust-sdk/tree/${NEEDS_BUILD_TARGETS_OUTPUTS_LINKABLE_REF}" \
+            --notes "https://github.com/hughns/matrix-rust-sdk/tree/${NEEDS_BUILD_TARGETS_OUTPUTS_LINKABLE_REF}" \
             --target "$(git rev-parse HEAD)"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NIGHTLY: ${{ needs.prepare.outputs.nightly }}
           GITHUB_EVENT_INPUTS_SDK_VERSION: ${{ needs.prepare.outputs.version }}
           NEEDS_BUILD_TARGETS_OUTPUTS_LINKABLE_REF: ${{ needs.build_targets.outputs.linkable_ref }}
-
-  update_element_x_android:
-    name: "Open or update the Element X Android PR"
-    needs: [prepare, build_targets, release_library]
-    runs-on: ubuntu-24.04
-    permissions: {}
-
-    concurrency:
-      group: update-element-x-android
-      cancel-in-progress: false
-
-    steps:
-      - name: Checkout this repo
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-
-      - name: Open or update the pull request
-        run: ./scripts/update_element_x_android.sh "${VERSION}" --rust-ref "${RUST_REF}"
-        env:
-          # Needs a token with write access to element-hq/element-x-android (contents and pull requests),
-          # the default GITHUB_TOKEN is scoped to this repository only.
-          GH_TOKEN: ${{ secrets.ELEMENT_X_ANDROID_PR_TOKEN }}
-          VERSION: ${{ needs.prepare.outputs.version }}
-          RUST_REF: ${{ needs.build_targets.outputs.linkable_ref }}
-
-  upload_debug_info:
-    name: "Upload debug info to Sentry"
-    # Runs last, in its own job, so a Sentry failure doesn't affect the release
-    needs: [release_library, update_element_x_android]
-    runs-on: ubuntu-24.04
-    permissions: {}
-
-    steps:
-      - name: Download debug info
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0@v7
-        with:
-          pattern: debuginfo-*
-          merge-multiple: true
-          path: ./debuginfo
-
-      - name: Setup Sentry CLI
-        uses: matbour/setup-sentry-cli@3e938c54b3018bdd019973689ef984e033b0454b # v2.0.0
-        with:
-          version: latest
-          url: https://sentry.tools.element.io
-          token: ${{ SECRETS.SENTRY_TOKEN }}
-          organization: element
-          project: 63 # the matrix sdk project
-
-      - name: Upload debuginfo to sentry
-        run: sentry-cli debug-files upload debuginfo
