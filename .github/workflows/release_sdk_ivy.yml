@@ -276,7 +276,7 @@ jobs:
         run: |
           git add buildSrc/src/main/kotlin/BuildVersionsSDK.kt
           git commit -m "Bump SDK version to ${GITHUB_EVENT_INPUTS_SDK_VERSION} (matrix-rust-sdk to ${NEEDS_BUILD_TARGETS_OUTPUTS_LINKABLE_REF})"
-          git pull --rebase origin main
+          git pull --rebase --autostash origin main
           git push origin HEAD:main
         env:
           GITHUB_EVENT_INPUTS_SDK_VERSION: ${{ needs.prepare.outputs.version }}
